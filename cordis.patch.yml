@@ -1,0 +1,11 @@
+# dsh-mobile-watch —— DSH bundle patch
+#
+# 这是一个"零成本触发器"：DSH 启动时加载本 bundle 的 host 插件一次，
+# 插件把手机端自检脚本拉起来（延迟 20 秒，等 DSH 完成它自己的清理）。
+#
+# 之所以放在 bundle patch 里而不是 profile patch：
+#   任何安装了这个 bundle 的 profile（desktop / web / 自定义）都会自动生效。
+
+- insert:
+    - id: dsh-mobile-watch
+      name: dsh-mobile-watch

@@ -1,0 +1,37 @@
+{
+  "name": "dsh-mobile-watch",
+  "version": "0.1.0",
+  "description": "DSH bundle: on every startup (any launch path), checks the mobile web profile service and rebuilds it when missing, then emails the fresh access link.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "bundle",
+    "mobile",
+    "autostart",
+    "self-healing"
+  ],
+  "type": "module",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
+  "author": "jisvrin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jisvrin/dsh-mobile-watch.git"
+  }
+}

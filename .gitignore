@@ -1,0 +1,10 @@
+# runtime / local artifacts — never commit these
+web-service/
+node_modules/
+*.log
+mail-config.json
+
+# os noise
+Thumbs.db
+desktop.ini
+.DS_Store
