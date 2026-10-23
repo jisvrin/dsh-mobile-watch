@@ -1,5 +1,5 @@
 /**
- * dsh-mobile-watch
+ * dsh-phone-access
  *
  * DSH host plugin. On every DSH startup — whatever the launch path (desktop
  * icon, right-click open, taskbar, Win+R, command line, spawned by another
@@ -24,7 +24,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /** Cordis plugin name. */
-export const name = 'dsh-mobile-watch'
+export const name = 'dsh-phone-access'
 
 /**
  * DSH home. Respects DSH_HOME when the host sets it, otherwise ~/.dsh.
@@ -82,3 +82,4 @@ export function apply(ctx) {
     // never break DSH startup
   }
 }
+
