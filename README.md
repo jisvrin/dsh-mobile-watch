@@ -1,79 +1,80 @@
 # dsh-phone-access
 
-用手机打开 DSH，并且在 DSH 重启之后自己接回来。
+DSH 的手机访问入口。在 DSH 启动时检查手机端服务，缺失则重建隧道与 web 实例，并把新链接发到邮箱。
 
-## 起因
+## 作用
 
-我电脑基本不关机，DSH 一直开着。但人不总在电脑前——通勤路上、在公司、躺床上，经常想拿手机接着干电脑上那摊活。
+DSH 每次启动时加载本插件一次，无论启动方式（双击图标、右键打开、任务栏、命令行）。插件等待 20 秒，随后检查两件事：
 
-最开始的做法是用远程桌面把整个屏幕投到手机上，字小得看不清，输入法还老顶掉输入框。后来改成把 DSH 的 web 界面单独开一份给手机用，界面按竖屏排版，这样手机上看到的是正常的手机界面，不是缩小的桌面。
+- 3081 端口是否有 DSH web 实例在监听
+- cloudflared 进程是否存活
 
-这个方案有个毛病：DSH 每次启动会把它自己的 web 实例一起结束掉（同一个 exe，按进程名清理），于是手机链接就废了。更烦的是 Cloudflare 的免费隧道每次重建都换域名、换 token，等于每次都得重新找链接。
+两者都在则不执行任何操作；缺任意一个则重启隧道、重启 web 实例、写入新链接，并发送邮件。
 
-所以就写了这个插件，把"重启之后自己接回来"这件事自动化掉。
+插件没有常驻进程，启动后不保留定时器或监听器。20 秒延迟用于避开 DSH 启动过程中结束自身 web 实例的动作。
 
-## 装好之后
+## 使用场景
 
-你正常启动 DSH——双击图标、右键打开、从任务栏、命令行敲进去，怎么启动都行——20 秒后它会检查手机端服务：
+适用：
 
-- 还活着：什么都不做。不换域名，不发邮件，不打扰你。
-- 挂了：重新拉隧道、重新起 web 实例，然后把新链接发到你邮箱。
+- 家庭宽带为 CGNAT，没有公网 IP，无法做端口映射或 DDNS
+- 电脑长期开机，手机作为输入与查看终端
+- 不希望手机安装客户端或开启 VPN
+- 可接受链接随重建变化，通过邮件获取新地址
 
-手机端健康的时候，这个插件除了写一行启动记录之外没有任何动作，也不常驻。
+不适用：
 
-## 怎么用手机连
+- 需要固定域名访问
+- 需要手机端离线运行 agent
+- 不允许电脑对公网暴露端口
+- 非 Windows 系统
 
-重建完成会往你邮箱发一封信，里面有两条链接：
+手机端与桌面端共用同一份会话库，可查看并继续桌面端的会话。同一会话不建议两端同时输入。
 
-- 「任意网络」：Cloudflare 隧道地址，手机有网就能开
-- 「同一 WiFi」：局域网地址，在家用这个更快
+## 依赖
 
-点开就行，不用装 App，也不用开 VPN。第一次打开之后浏览器会记住登录状态，30 天内不用重新登录——但链接本身每次重建都会变，所以还是以最新那封邮件为准。
+必需：
 
-## 需要什么
-
-必须有的：
-
-- DSH，带 web profile（手机访问的就是这个实例）
-- cloudflared（打隧道用，DSH 自带下载的那个也行）
+- DSH，含 web profile（手机访问的即该实例）
+- cloudflared（可用 DSH 内置下载的版本）
 - PowerShell 7
 
-强烈建议装这个：
+建议安装：
 
-- `dsh-web-mobile` —— 手机竖屏排版。不装的话手机上打开是桌面布局，字小、按钮够不着、键盘一弹输入框就没了。装法是 `dsh plugin --profile web add dsh-web-mobile`。
+- `dsh-web-mobile`，提供手机竖屏排版。未安装时手机打开为桌面布局，控件尺寸与输入区域不适配。
 
 可选：
 
-- 一个能发信的邮箱（比如 QQ 邮箱开 SMTP，拿授权码），配上之后新链接会自动发过来。不配也行，链接会写在 `~/.dsh/web-service/mobile-urls.txt` 里。
-- 手机端要能真的对话，还得在 DSH 里配好模型供应商。这是 DSH 那边的事，跟本插件无关。
+- SMTP 邮箱，用于自动发送新链接。未配置时链接写在 `~/.dsh/web-service/mobile-urls.txt`。
 
-## 装上
+手机端要能正常对话，还需在 DSH 侧配置模型供应商，此部分与本插件无关。
 
-放插件、建链接、登记到 profile，三步：
+## 安装
 
-```powershell
+```
 $src = "$env:USERPROFILE\.dsh\profiles\desktop\plugins-src\dsh-phone-access"
 git clone https://github.com/jisvrin/dsh-phone-access.git $src
 
-# 让 profile 能按包名找到它
 cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-phone-access" "$src"
 ```
 
-然后在 `profiles/desktop/package.json` 里加上：
+在 `profiles/desktop/package.json` 中登记：
 
 ```json
 "bundles": [ "...", "dsh-phone-access" ],
-"dependencies": { "dsh-phone-access": "file:C:/Users/<你>/.dsh/profiles/desktop/plugins-src/dsh-phone-access" }
+"dependencies": { "dsh-phone-access": "file:C:/Users/<user>/.dsh/profiles/desktop/plugins-src/dsh-phone-access" }
 ```
 
-把 `scripts/` 里的三个 ps1 复制到 `~/.dsh/web-service/`，重启 DSH 就生效。
+将 `scripts/` 下的三个 ps1 复制到 `~/.dsh/web-service/`，重启 DSH 生效。
 
 验证：
 
 ```powershell
-Get-Content "$env:USERPROFILE\.dsh\web-service\plugin-trigger.log"   # 应该有 apply() called
-Get-Content "$env:USERPROFILE\.dsh\web-service\mobile-urls.txt"      # 手机链接
+Get-Content "$env:USERPROFILE\.dsh\web-service\plugin-trigger.log"
+Get-Content "$env:USERPROFILE\.dsh\web-service\mobile-urls.txt"
 ```
+
+`plugin-trigger.log` 出现 `apply() called` 表示插件已加载。
 
 ## 发信配置
 
@@ -83,55 +84,44 @@ Get-Content "$env:USERPROFILE\.dsh\web-service\mobile-urls.txt"      # 手机链
 {
   "host": "smtp.qq.com",
   "port": 587,
-  "from": "你的邮箱@qq.com",
-  "to": "你的邮箱@qq.com",
+  "from": "user@qq.com",
+  "to": "user@qq.com",
   "password": "SMTP 授权码"
 }
 ```
 
-QQ 邮箱的授权码在「设置 → 账户 → 开启 IMAP/SMTP 服务」里拿，不是登录密码。这个文件里是明文凭据，建完锁一下权限：
+QQ 邮箱的授权码在「设置 → 账户 → 开启 IMAP/SMTP 服务」中生成，不是登录密码。该文件为明文凭据，创建后限制访问权限：
 
 ```powershell
 icacls "$env:USERPROFILE\.dsh\web-service\mail-config.json" /inheritance:r /grant:r "$env:USERNAME:(R,W)"
 ```
 
-## 可调的东西
+## 可配置项
 
-| 变量 | 默认 | 作用 |
+| 变量 | 默认值 | 说明 |
 |---|---|---|
 | `DSH_HOME` | `%USERPROFILE%\.dsh` | DSH 家目录 |
 | `DSH_MOBILE_PORT` | `3081` | 手机端端口 |
-| `DSH_MOBILE_PROFILE` | `web` | 用哪个 profile 给手机 |
-| `DSH_CLI` | `dsh` | dsh 启动器（要在 PATH 里） |
-| `DSH_MOBILE_CLOUDFLARED` | 自动找 | cloudflared.exe 路径 |
-| `DSH_MOBILE_DELAY_SECONDS` | `20` | 启动后等几秒再检查 |
+| `DSH_MOBILE_PROFILE` | `web` | 手机端使用的 profile |
+| `DSH_CLI` | `dsh` | dsh 启动器，需在 PATH 中 |
+| `DSH_MOBILE_CLOUDFLARED` | 自动探测 | cloudflared.exe 路径 |
+| `DSH_MOBILE_DELAY_SECONDS` | `20` | 启动后延迟检查的秒数 |
 
-## 踩过的几个坑
+## 实现要点
 
-写的时候踩了几次，记下来省得别人再踩：
+`--trusted-host` 只接受裸主机名。带 `https://` 前缀会导致 dsh 拒绝启动，报 `trustedHosts entry ... is not a bare host[:port] authority`。
 
-**`--trusted-host` 只认裸域名。** 写成 `https://xxx.trycloudflare.com` 会让 dsh 直接不起，报 `trustedHosts entry ... is not a bare host[:port] authority`。
+不要在 dsh 前部署改写 Host 的反向代理。dsh 签发的 cookie 绑定 authority，Host 被改写后与真实域名不一致，浏览器会陷入 303 重定向循环。
 
-**别在 dsh 前面加改写 Host 的反代。** 我一开始想用它绕过 `/api` 的信任围栏，结果 dsh 签发的 cookie 里绑着本地地址，浏览器看到的却是隧道域名，两边对不上，页面陷入 303 死循环，怎么刷都进不去。正确姿势就是 `--trusted-host` 白名单。
+抓取 token 需按当前域名匹配。`web.console.log` 为追加写入，包含历次启动的 token，直接取最后一条可能取到上一个域名的值。
 
-**抓 token 要按本次域名匹配。** `web.console.log` 是追加写的，里面躺着历次启动的 token，直接取最后一条很可能拿到上一个域名的，链接打开就是 401。
+验证链接需保留 cookie：`curl -L -c jar -b jar "<url>?token=..."`。缺少 cookie jar 时 303 与 401 会被误判为 token 失效。
 
-**验证链接得带 cookie。** `curl -L` 不带 cookie jar 会被 303/401 误导成"token 失效"，其实只是没保存登录态。用 `curl -L -c jar -b jar "<url>?token=..."`。
+重建会同时更换隧道域名和 web token，旧链接随即失效。
 
-**为什么延迟 20 秒。** DSH 启动时会结束自己的 web 实例，检查太早就是跟一个马上要死的进程赛跑，建好立刻被杀。
+## 卸载
 
-## 不适合的情况
-
-- 想要永久固定域名（`dsh.example.com` 那种）。这个方案用的是免费临时隧道，域名必变。要固定得走 Cloudflare 命名隧道 + 自己的域名。
-- 想让手机离线跑 agent。这里只是把界面搬过去，算力还在电脑上。
-- 不允许电脑对公网暴露任何端口。虽然隧道有 token 保护，但带 token 的链接等于控制权，别外传。
-- 不是 Windows 的机器。脚本里用了 `Get-NetAdapter`、`wscript`、WMI 查询。
-
-手机端和桌面端共用同一份会话库，所以能看到电脑上的会话接着聊。但别两端同时对同一个会话发消息。
-
-## 卸掉
-
-从 `package.json` 的 bundles 和 dependencies 里删掉，再：
+从 `package.json` 的 bundles 与 dependencies 中移除条目，然后：
 
 ```powershell
 Remove-Item "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-phone-access" -Force
@@ -141,3 +131,4 @@ Remove-Item "$env:USERPROFILE\.dsh\web-service" -Recurse -Force
 ## 许可
 
 MIT
+
